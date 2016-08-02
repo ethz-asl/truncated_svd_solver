@@ -115,6 +115,13 @@ class TruncatedSvdSolver {
   // TODO(schneith): we are missing here the Frobenius norm, available in
   //                 SPQR 3.4
 
+  /**
+   * Set cholmod SPQR threads.
+   * @param nThreads number of threads. (-1 = chosen automatically)
+   */
+  void setNThreads(int nThreads) {
+    cholmod_.SPQR_nthreads = nThreads;
+  }
  protected:
   void clearSvdAnalysisResultMembers();
   void analyzeSVD(cholmod_sparse * Omega);
