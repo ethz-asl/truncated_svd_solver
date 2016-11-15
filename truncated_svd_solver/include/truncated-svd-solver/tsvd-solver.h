@@ -117,11 +117,9 @@ class TruncatedSvdSolver {
 
   /**
    * Set cholmod SPQR threads.
-   * @param nThreads number of threads. (-1 = chosen automatically)
+   * @param n number of threads. (-1 = chosen automatically)
    */
-  void setNThreads(int nThreads) {
-    cholmod_.SPQR_nthreads = nThreads;
-  }
+  void setNThreads(int n);
  protected:
   void clearSvdAnalysisResultMembers();
   void analyzeSVD(cholmod_sparse * Omega);

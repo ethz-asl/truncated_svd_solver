@@ -181,6 +181,11 @@ double TruncatedSvdSolver::getNumericFactorizationTime() const {
   return cholmod_.other1[2];
 }
 
+void TruncatedSvdSolver::setNThreads(int n) {
+  CHECK_GE(n, -1);
+  cholmod_.SPQR_nthreads = n;
+}
+
 void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
                                size_t j, Eigen::VectorXd& x) {
   CHECK_EQ(A->nrow, b->nrow);
