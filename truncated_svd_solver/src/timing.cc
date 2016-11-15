@@ -4,15 +4,11 @@
 
 namespace truncated_svd_solver {
 
-Timestamp::Timestamp(double seconds) :
-    seconds_(seconds) {
-}
+Timestamp::Timestamp(double seconds) : seconds_(seconds) {}
 
-Timestamp::Timestamp(const Timestamp& other) :
-    seconds_(other.seconds_) {
-}
+Timestamp::Timestamp(const Timestamp& other) : seconds_(other.seconds_) {}
 
-Timestamp& Timestamp::operator = (const Timestamp& other) {
+Timestamp& Timestamp::operator=(const Timestamp& other) {
   if (this != &other) {
     seconds_ = other.seconds_;
   }
@@ -21,9 +17,7 @@ Timestamp& Timestamp::operator = (const Timestamp& other) {
 
 Timestamp::~Timestamp() {}
 
-double Timestamp::getSeconds() const {
-  return seconds_;
-}
+double Timestamp::getSeconds() const { return seconds_; }
 
 double Timestamp::now() {
   struct timeval time;
@@ -37,7 +31,7 @@ std::string Timestamp::getDate() {
   struct tm* ptm;
   ptm = localtime(&time.tv_sec);
   char timeString[40];
-  strftime(timeString, sizeof (timeString), "%Y-%m-%d %H:%M:%S", ptm);
+  strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M:%S", ptm);
   return std::string(timeString);
 }
 
@@ -47,13 +41,11 @@ std::string Timestamp::getDate(double seconds) {
   struct tm* ptm;
   ptm = localtime(&time.tv_sec);
   char timeString[40];
-  strftime(timeString, sizeof (timeString), "%Y-%m-%d-%H-%M-%S", ptm);
+  strftime(timeString, sizeof(timeString), "%Y-%m-%d-%H-%M-%S", ptm);
   return std::string(timeString);
 }
 
-Timestamp::operator double() const {
-  return seconds_;
-}
+Timestamp::operator double() const { return seconds_; }
 
 Timestamp::operator timespec() const {
   timespec time;
@@ -62,78 +54,70 @@ Timestamp::operator timespec() const {
   return time;
 }
 
-bool Timestamp::operator == (const Timestamp& timestamp) const {
+bool Timestamp::operator==(const Timestamp& timestamp) const {
   return (seconds_ == timestamp.seconds_);
 }
 
-bool Timestamp::operator == (double seconds) const {
+bool Timestamp::operator==(double seconds) const {
   return (seconds_ == seconds);
 }
 
-bool Timestamp::operator != (const Timestamp& timestamp) const {
+bool Timestamp::operator!=(const Timestamp& timestamp) const {
   return (seconds_ != timestamp.seconds_);
 }
 
-bool Timestamp::operator != (double seconds) const {
+bool Timestamp::operator!=(double seconds) const {
   return (seconds_ != seconds);
 }
 
-bool Timestamp::operator > (const Timestamp& timestamp) const {
+bool Timestamp::operator>(const Timestamp& timestamp) const {
   return (seconds_ > timestamp.seconds_);
 }
 
-bool Timestamp::operator > (double seconds) const {
-  return (seconds_ > seconds);
-}
+bool Timestamp::operator>(double seconds) const { return (seconds_ > seconds); }
 
-bool Timestamp::operator < (const Timestamp& timestamp) const {
+bool Timestamp::operator<(const Timestamp& timestamp) const {
   return (seconds_ < timestamp.seconds_);
 }
 
-bool Timestamp::operator < (double seconds) const {
-  return (seconds_ < seconds);
-}
+bool Timestamp::operator<(double seconds) const { return (seconds_ < seconds); }
 
-bool Timestamp::operator >= (const Timestamp& timestamp) const {
+bool Timestamp::operator>=(const Timestamp& timestamp) const {
   return (seconds_ >= timestamp.seconds_);
 }
 
-bool Timestamp::operator >= (double seconds) const {
+bool Timestamp::operator>=(double seconds) const {
   return (seconds_ >= seconds);
 }
 
-bool Timestamp::operator <= (const Timestamp& timestamp) const {
+bool Timestamp::operator<=(const Timestamp& timestamp) const {
   return (seconds_ <= timestamp.seconds_);
 }
 
-bool Timestamp::operator <= (double seconds) const {
+bool Timestamp::operator<=(double seconds) const {
   return (seconds_ <= seconds);
 }
 
-Timestamp& Timestamp::operator += (double seconds) {
+Timestamp& Timestamp::operator+=(double seconds) {
   seconds_ += seconds;
   return *this;
 }
 
-Timestamp& Timestamp::operator -= (double seconds) {
+Timestamp& Timestamp::operator-=(double seconds) {
   seconds_ -= seconds;
   return *this;
 }
 
-double Timestamp::operator + (double seconds) const {
-  return seconds_ + seconds;
-}
+double Timestamp::operator+(double seconds) const { return seconds_ + seconds; }
 
-double Timestamp::operator + (const Timestamp& timestamp) const {
+double Timestamp::operator+(const Timestamp& timestamp) const {
   return seconds_ + timestamp.seconds_;
 }
 
-double Timestamp::operator - (const Timestamp& timestamp) const {
+double Timestamp::operator-(const Timestamp& timestamp) const {
   return seconds_ - timestamp.seconds_;
 }
 
-double Timestamp::operator - (double seconds) const {
-  return seconds_ - seconds;
-}
+double Timestamp::operator-(double seconds) const { return seconds_ - seconds; }
 
 }  // namespace truncated_svd_solver

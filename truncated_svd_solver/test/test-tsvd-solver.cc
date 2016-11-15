@@ -2,13 +2,10 @@
 #include <iostream>
 #include <iomanip>
 
+#include <cholmod.h>
+#include <Eigen/Core>
 #include <eigen-checks/gtest.h>
 #include <gtest/gtest.h>
-
-#include <Eigen/Core>
-#include <Eigen/Dense>
-
-#include <cholmod.h>
 #include <SuiteSparseQR.hpp>
 
 #include "truncated-svd-solver/tsvd-solver.h"
@@ -83,8 +80,8 @@ void evaluateSPQRSolverDeterminedSystem(
   constexpr double kXResult = 2.0;
 
   Eigen::VectorXd Adiag(kNumVariables);
-  for(size_t i = 0; i < kNumVariables; ++i){
-    Adiag(i) =  kNumVariables - i;
+  for (size_t i = 0u; i < kNumVariables; ++i) {
+    Adiag(i) = kNumVariables - i;
   }
 
   Eigen::MatrixXd A = Eigen::MatrixXd::Zero(kNumVariables, kNumVariables);
@@ -102,11 +99,11 @@ void evaluateSPQRSolverDeterminedSystem(
   truncated_svd_solver::eigenDenseToCholmodDenseView(b, &b_cm);
 
   // Solve this system and check the results.
-
   truncated_svd_solver::TruncatedSvdSolver solver(options);
 
-  for (std::ptrdiff_t i = 0; i <= A.cols(); ++i) {
-    const size_t num_calib_vars = kNumVariables - i;
+  for (std::ptrdiff_t i = 0u; i <= A.cols(); ++i) {
+    const int num_calib_vars = kNumVariables - i;
+    ASSERT_GE(num_calib_vars, 0);
 
     Eigen::VectorXd x;
     solver.clear();
@@ -138,7 +135,7 @@ void evaluateSPQRSolverDeterminedSystem(
     EXPECT_EQ(solver.getNullSpace().size(), 0);
 
     Eigen::VectorXd expectedSingularValues;
-    if(options.columnScaling){
+    if (options.columnScaling) {
       expectedSingularValues = Eigen::VectorXd::Ones(num_calib_vars);
     }else{
       expectedSingularValues =
@@ -157,6 +154,36 @@ void evaluateSPQRSolverDeterminedSystem(
   cholmod_l_free_sparse(&A_cm, &cholmod);
 }
 
+void buildUnderdeterminedSystem(
+    const truncated_svd_solver::TruncatedSvdSolverOptions& options) {
+  // Create the system.
+  constexpr size_t kNumVariables = 10u;
+  constexpr size_t kNumEquations = 5u;
+  constexpr double kXResult = 2.3;
+
+  Eigen::MatrixXd A(kNumEquations, kNumVariables);
+  A.setRandom();
+  Eigen::VectorXd b = A * Eigen::VectorXd::Constant(kNumVariables, kXResult);
+
+  // Convert to cholmod types.
+  cholmod_common_struct cholmod;
+  cholmod_l_start(&cholmod);
+  cholmod_sparse* A_cm =
+      truncated_svd_solver::eigenDenseToCholmodSparseCopy(A, &cholmod);
+  cholmod_dense b_cm;
+  truncated_svd_solver::eigenDenseToCholmodDenseView(b, &b_cm);
+
+  // Solve this system and check the results.
+  truncated_svd_solver::TruncatedSvdSolver solver(options);
+
+  Eigen::VectorXd x;
+  size_t i = 8;
+  solver.solve(A_cm, &b_cm, i, x);
+
+  // Only testing the problem building here. No comparisons required.
+  cholmod_l_free_sparse(&A_cm, &cholmod);
+}
+
 TEST(TruncatedSvdSolver, DeterminedSystemWithoutColumnScaling) {
   truncated_svd_solver::TruncatedSvdSolverOptions options;
   options.columnScaling = false;
@@ -169,80 +196,37 @@ TEST(TruncatedSvdSolver, DeterminedSystemWithColumnScaling) {
   evaluateSPQRSolverDeterminedSystem(options);
 }
 
+TEST(TruncatedSvdSolver, BuildUnderdeterminedSystem) {
+  truncated_svd_solver::TruncatedSvdSolverOptions options;
+  options.columnScaling = false;
+  buildUnderdeterminedSystem(options);
+}
+
 TEST(TruncatedSvdSolver, OverdeterminedSystem) {
   Eigen::MatrixXd A = Eigen::MatrixXd::Random(100, 30);
   const Eigen::VectorXd x = Eigen::VectorXd::Random(30);
   Eigen::VectorXd b = A * x;
 
-  std::cout << "-------------------------------------------------" << std::endl;
-  std::cout << "|                  Standard case                |" << std::endl;
-  std::cout << "-------------------------------------------------" << std::endl;
+  // Standard case
   evaluateSVDSPQRSolver(A, b, x);
   evaluateSVDSolver(A, b, x);
   evaluateSPQRSolver(A, b, x);
 
-  std::cout << "-------------------------------------------------" << std::endl;
-  std::cout << "|                 Badly scaled case             |" << std::endl;
-  std::cout << "-------------------------------------------------" << std::endl;
+  // Badly scaled case
   A.col(2) = 1e6 * A.col(2);
   A.col(28) = 1e6 * A.col(28);
   b = A * x;
   evaluateSVDSPQRSolver(A, b, x, 1e-3);
   evaluateSVDSolver(A, b, x);
   evaluateSPQRSolver(A, b, x);
-
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  std::cout << "|                 Rank-deficient case 1         |" << std::endl;
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  A = Eigen::MatrixXd::Random(100, 30);
-//  A.col(10) = Eigen::VectorXd::Zero(A.rows());
-//  b = A * x;
-//  evaluateSVDSPQRSolver(A, b, x, 1e-3);
-//  evaluateSVDSolver(A, b, x);
-//  evaluateSPQRSolver(A, b, x);
-
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  std::cout << "|                 Rank-deficient case 2         |" << std::endl;
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  A = Eigen::MatrixXd::Random(100, 30);
-//  A.col(10) = 2 * A.col(1) + 5 * A.col(20);
-//  b = A * x;
-//  evaluateSVDSPQRSolver(A, b, x, 1e-3);
-//  evaluateSVDSolver(A, b, x);
-//  evaluateSPQRSolver(A, b, x);
-
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  std::cout << "|                 Near rank-deficient case 1    |" << std::endl;
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  A = Eigen::MatrixXd::Random(100, 30);
-//  A.col(10) = Eigen::VectorXd::Zero(A.rows());
-//  b = A * x;
-//  A.col(10) = truncated_svd_solver::NormalDistribution<100>(
-//    Eigen::VectorXd::Zero(A.rows()),
-//    1e-6 * Eigen::MatrixXd::Identity(A.rows(), A.rows())).getSample();
-//  evaluateSVDSPQRSolver(A, b, x, 1e-3);
-//  evaluateSVDSolver(A, b, x);
-//  evaluateSPQRSolver(A, b, x);
-
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  std::cout << "|                 Near rank-deficient case 2    |" << std::endl;
-//  std::cout << "-------------------------------------------------" << std::endl;
-//  A = Eigen::MatrixXd::Random(100, 30);
-//  A.col(10) = 2 * A.col(1) + 5 * A.col(20);
-//  b = A * x;
-//  A.col(10) = truncated_svd_solver::NormalDistribution<100>(A.col(10),
-//    1e-20 * Eigen::MatrixXd::Identity(A.rows(), A.rows())).getSample();
-//  evaluateSVDSPQRSolver(A, b, x, 1e-3);
-//  evaluateSVDSolver(A, b, x);
-//  evaluateSPQRSolver(A, b, x);
+  // TODO(schneith): Add tests for the rank-deficient case.
 }
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   google::InitGoogleLogging(argv[0]);
-  google::InstallFailureSignalHandler();\
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
-  FLAGS_alsologtostderr = true;
-  FLAGS_colorlogtostderr = true;
+  FLAGS_alsologtostderr = true;  // NOLINT
+  FLAGS_colorlogtostderr = true;  // NOLINT
   return RUN_ALL_TESTS();
 }

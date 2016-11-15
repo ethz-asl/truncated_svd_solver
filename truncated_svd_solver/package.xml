@@ -8,7 +8,7 @@
    by SVD, while the rest of the variables are solved with SPQR.
   </description>
   
-  <license>BSD</license>
+  <license>Apache 2.0</license>
   <url type="website">https://github.com/ethz-asl/truncated_svd_solver</url>
   <author email="jerome.maye@mavt.ethz.ch">Jerome Maye</author>
   <maintainer email="schneith@ethz.ch">Thomas Schneider</maintainer>
@@ -19,6 +19,6 @@
   <depend>eigen_catkin</depend>
   <depend>eigen_checks</depend>
   <depend>glog_catkin</depend>
+  <depend>lapack</depend>
   <depend>suitesparse</depend>
-  <depend>TBB</depend>
 </package>
