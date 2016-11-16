@@ -213,8 +213,8 @@ TEST(TruncatedSvdSolver, OverdeterminedSystem) {
   evaluateSPQRSolver(A, b, x);
 
   // Badly scaled case
-  A.col(2) = 1e6 * A.col(2);
-  A.col(28) = 1e6 * A.col(28);
+  A.col(2) = 1e5 * A.col(2);
+  A.col(28) = 1e5 * A.col(28);
   b = A * x;
   evaluateSVDSPQRSolver(A, b, x, 1e-3);
   evaluateSVDSolver(A, b, x);
