@@ -194,7 +194,7 @@ cholmod_sparse* eigenDenseToCholmodSparseCopy(const Eigen::MatrixXd& A,
 
 std::ptrdiff_t estimateNumericalRank(const Eigen::VectorXd& singular_values,
                                      double tolerance) {
-  CHECK_GT(tolerance, 0.0);
+  CHECK_GE(tolerance, 0.0);
 
   std::ptrdiff_t numerical_rank = singular_values.size();
   for (std::ptrdiff_t i = singular_values.size() - 1; i >= 0; --i) {
