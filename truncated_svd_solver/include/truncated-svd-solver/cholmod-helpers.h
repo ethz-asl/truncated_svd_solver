@@ -3,8 +3,10 @@
 
 #include <vector>
 
+#ifdef ANDROID
+#define UF_long SuiteSparse_long
+#endif
 #include <Eigen/CholmodSupport>
-#include <Eigen/Sparse>
 
 namespace truncated_svd_solver {
 

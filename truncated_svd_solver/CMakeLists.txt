@@ -6,9 +6,10 @@ catkin_simple()
 
 add_definitions("-std=c++11")
 
-###########
-# LIBRARY #
-###########
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+find_package(SuiteSparse REQUIRED)
+find_package(LAPACK REQUIRED)
+
 cs_add_library(${PROJECT_NAME}
   src/linear-algebra-helpers.cc
   src/marginalization.cc
@@ -16,7 +17,7 @@ cs_add_library(${PROJECT_NAME}
   src/tsvd-solver.cc
   src/tsvd-solver-options.cc
 )
-target_link_libraries(${PROJECT_NAME} pthread ${TBB_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${SUITESPARSE_LIBRARIES})
 
 #########
 # TESTS #

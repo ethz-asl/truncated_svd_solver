@@ -9,20 +9,21 @@
 
 #include "truncated-svd-solver/cholmod-helpers.h"
 #include "truncated-svd-solver/linear-algebra-helpers.h"
+#include "truncated-svd-solver/suitesparse-compat-helpers.h"
 #include "truncated-svd-solver/timing.h"
 
 namespace truncated_svd_solver {
 
-TruncatedSvdSolver::TruncatedSvdSolver(const Options& options) :
-    tsvd_options_(options),
-    factor_(nullptr),
-    svdRank_(-1),
-    svGap_(std::numeric_limits<double>::infinity()),
-    svdRankDeficiency_(-1),
-    margStartIndex_(-1),
-    svdTolerance_(-1.0),
-    linearSolverTime_(0.0),
-    marginalAnalysisTime_(0.0) {
+TruncatedSvdSolver::TruncatedSvdSolver(const Options& options)
+    : tsvd_options_(options),
+      factor_(nullptr),
+      svdRank_(-1),
+      svGap_(std::numeric_limits<double>::infinity()),
+      svdRankDeficiency_(-1),
+      margStartIndex_(-1),
+      svdTolerance_(-1.0),
+      linearSolverTime_(0.0),
+      marginalAnalysisTime_(0.0) {
   cholmod_l_start(&cholmod_);
   cholmod_.SPQR_grain = 16;  // Maybe useless.
 }
@@ -156,7 +157,7 @@ size_t TruncatedSvdSolver::getMemoryUsage() const {
 }
 
 double TruncatedSvdSolver::getNumFlops() const {
-  return cholmod_.SPQR_xstat[0];
+  return Get_SPQR_FlopcountBound(cholmod_);
 }
 
 double TruncatedSvdSolver::getLinearSolverTime() const {
@@ -171,14 +172,14 @@ double TruncatedSvdSolver::getSymbolicFactorizationTime() const {
   if (!factor_ || !factor_->QRsym) {
     return 0.0;
   }
-  return cholmod_.other1[1];
+  return Get_SPQR_AnalyzeTime(cholmod_);
 }
 
 double TruncatedSvdSolver::getNumericFactorizationTime() const {
   if (!factor_ || !factor_->QRnum) {
     return 0.0;
   }
-  return cholmod_.other1[2];
+  return Get_SPQR_FactorizeTime(cholmod_);
 }
 
 void TruncatedSvdSolver::setNThreads(int n) {
@@ -189,13 +190,15 @@ void TruncatedSvdSolver::setNThreads(int n) {
 void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
                                size_t j, Eigen::VectorXd& x) {
   CHECK_EQ(A->nrow, b->nrow);
+  CHECK_LE(j, A->ncol);
   const bool hasQrPart = j > 0;
   const bool hasSvdPart = j < A->ncol;
+  margStartIndex_ = j;
 
   const double t0 = Timestamp::now();
 
   SelfFreeingCholmodPtr<cholmod_dense> G_l(nullptr, cholmod_);
-  if(hasQrPart) {
+  if (hasQrPart) {
     SelfFreeingCholmodPtr<cholmod_sparse> A_l(nullptr, cholmod_);
     A_l = columnSubmatrix(A, 0, j - 1, &cholmod_);
 
@@ -208,8 +211,8 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
     // Clear the cached symbolic QR-factorization if the matrix has changed.
     if (factor_ && factor_->QRsym &&
         (factor_->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
-        factor_->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol) ||
-        factor_->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax))) {
+         factor_->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol) ||
+         factor_->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax))) {
       clear();
     }
 
@@ -221,7 +224,7 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
       CHECK(factor_ != nullptr) << "SuiteSparseQR_symbolic failed.";
 
       const double t3 = Timestamp::now();
-      cholmod_.other1[1] = t3 - t2;
+      Get_SPQR_AnalyzeTime(cholmod_) = t3 - t2;
     }
 
     const double qrTolerance = (tsvd_options_.qrTol != -1.0) ? tsvd_options_.qrTol :
@@ -231,10 +234,10 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
       factor_, &cholmod_);
     CHECK(status) << "SuiteSparseQR_numeric failed.";
     const double t3 = Timestamp::now();
-    cholmod_.other1[2] = t3 - t2;
+    Get_SPQR_FactorizeTime(cholmod_) = t3 - t2;
   } else {
     clear();
-    cholmod_.other1[1] = cholmod_.other1[2] = 0.0;
+    Get_SPQR_AnalyzeTime(cholmod_) = Get_SPQR_FactorizeTime(cholmod_) = 0.0;
   }
 
   Eigen::VectorXd x_r;
@@ -258,8 +261,10 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
 
       SelfFreeingCholmodPtr<cholmod_sparse> A_rtQ(nullptr, cholmod_);
       SelfFreeingCholmodPtr<cholmod_sparse> Omega(nullptr, cholmod_);
+      // Evaluate Eq. 21 from [1].
       reduceLeftHandSide(factor_, A_rt, &Omega, &A_rtQ, &cholmod_);
       analyzeSVD(Omega);
+      // Evaluate Eq. 22 from [1].
       b_r = reduceRightHandSide(factor_, A_rt, A_rtQ, b, &cholmod_);
     }
     solveSVD(b_r, singularValues_, matrixU_, matrixV_, svdRank_, x_r);
@@ -275,7 +280,7 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
   }
 
   if (tsvd_options_.columnScaling) {
-    if(G_l){
+    if (G_l) {
       Eigen::Map<const Eigen::VectorXd> G_lEigen(
           reinterpret_cast<const double*>(G_l->x), G_l->nrow);
       Eigen::Map<Eigen::VectorXd> x_lEigen(
@@ -283,7 +288,7 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
       x_lEigen = G_lEigen.cwiseProduct(x_lEigen);
       G_l.reset(nullptr);
     }
-    if(G_r){
+    if (G_r) {
       Eigen::Map<const Eigen::VectorXd> G_rEigen(
           reinterpret_cast<const double*>(G_r->x), G_r->nrow);
       x_r = G_rEigen.array() * x_r.array();
@@ -297,19 +302,20 @@ void TruncatedSvdSolver::solve(cholmod_sparse* A, cholmod_dense* b,
         reinterpret_cast<double*>(x_l->x), x_l->nrow);
     x.head(x_lEigen.size()) = x_lEigen;
   }
-  if(hasSvdPart){
+  if (hasSvdPart) {
     x.tail(x_r.size()) = x_r;
   }
 
   linearSolverTime_ = Timestamp::now() - t0;
 }
 
-void TruncatedSvdSolver::analyzeSVD(cholmod_sparse * Omega) {
+void TruncatedSvdSolver::analyzeSVD(cholmod_sparse* Omega) {
   if (Omega) {
     truncated_svd_solver::analyzeSVD(Omega, singularValues_, matrixU_,
                                      matrixV_);
-    svdTolerance_ = (tsvd_options_.svdTol != -1.0) ? tsvd_options_.svdTol :
-        rankTol(singularValues_, tsvd_options_.epsSVD);
+    svdTolerance_ = (tsvd_options_.svdTol != -1.0)
+                        ? tsvd_options_.svdTol
+                        : rankTol(singularValues_, tsvd_options_.epsSVD);
     svdRank_ = estimateNumericalRank(singularValues_, svdTolerance_);
     svdRankDeficiency_ = singularValues_.size() - svdRank_;
     svGap_ = svGap(singularValues_, svdRank_);
@@ -324,14 +330,15 @@ void TruncatedSvdSolver::analyzeMarginal(cholmod_sparse* A, size_t j) {
   const double t0 = Timestamp::now();
   const bool hasQrPart = j > 0;
   const bool hasSvdPart = j < A->ncol;
+  margStartIndex_ = j;
 
   if (hasQrPart) {
     SelfFreeingCholmodPtr<cholmod_sparse> A_l(
         columnSubmatrix(A, 0, j - 1, &cholmod_), cholmod_);
-    if (factor_ && factor_->QRsym
-        && (factor_->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow)
-            || factor_->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol)
-            || factor_->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax)))
+    if (factor_ && factor_->QRsym &&
+        (factor_->QRsym->m != static_cast<std::ptrdiff_t>(A_l->nrow) ||
+         factor_->QRsym->n != static_cast<std::ptrdiff_t>(A_l->ncol) ||
+         factor_->QRsym->anz != static_cast<std::ptrdiff_t>(A_l->nzmax)))
       clear();
     if (!factor_) {
       const double t2 = Timestamp::now();
@@ -341,7 +348,7 @@ void TruncatedSvdSolver::analyzeMarginal(cholmod_sparse* A, size_t j) {
       CHECK(factor_ != nullptr) << "SuiteSparseQR_symbolic failed.";
 
       const double t3 = Timestamp::now();
-      cholmod_.other1[1] = t3 - t2;
+      Get_SPQR_AnalyzeTime(cholmod_) = t3 - t2;
     }
 
     const double t2 = Timestamp::now();
@@ -351,10 +358,10 @@ void TruncatedSvdSolver::analyzeMarginal(cholmod_sparse* A, size_t j) {
     const bool success = SuiteSparseQR_numeric<double>(
         qrTolerance, A_l, factor_, &cholmod_);
     CHECK(success) << "SuiteSparseQR_numeric failed.";
-    cholmod_.other1[2] = Timestamp::now() - t2;
+    Get_SPQR_FactorizeTime(cholmod_) = Timestamp::now() - t2;
   } else {
     clear();
-    cholmod_.other1[1] = cholmod_.other1[2] = 0.0;
+    Get_SPQR_AnalyzeTime(cholmod_) = Get_SPQR_FactorizeTime(cholmod_) = 0.0;
   }
 
   if (hasSvdPart) {

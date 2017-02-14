@@ -28,7 +28,7 @@ cholmod_sparse* columnSubmatrix(cholmod_sparse* A, std::ptrdiff_t
 
   cholmod_sparse* A_sub = cholmod_l_submatrix(A, nullptr, -1, col_indices,
     num_indices, 1, 1, cholmod);
-  delete [] col_indices;
+  delete[] col_indices;
   CHECK(A_sub != nullptr) << "cholmod_l_submatrix failed.";
 
   return A_sub;
@@ -45,13 +45,13 @@ cholmod_sparse* rowSubmatrix(cholmod_sparse* A, std::ptrdiff_t row_start_idx,
 
   const std::ptrdiff_t num_indices = row_end_idx - row_start_idx + 1;
   std::ptrdiff_t* row_indices = new std::ptrdiff_t[num_indices];
-  for (std::ptrdiff_t i = row_start_idx; i <= row_end_idx; ++i){
+  for (std::ptrdiff_t i = row_start_idx; i <= row_end_idx; ++i) {
     row_indices[i - row_start_idx] = i;
   }
 
   cholmod_sparse* A_sub = cholmod_l_submatrix(A, row_indices, num_indices,
     nullptr, -1, 1, 1, cholmod);
-  delete [] row_indices;
+  delete[] row_indices;
   CHECK(A_sub != nullptr) << "cholmod_l_submatrix failed.";
 
   return A_sub;
@@ -238,6 +238,7 @@ void reduceLeftHandSide(SuiteSparseQR_factorization<double>* factor,
     cholmod_sparse* A_rt, cholmod_sparse** Omega, cholmod_sparse** A_rtQ,
     cholmod_common* cholmod) {
   CHECK_NOTNULL(A_rt);
+  CHECK_NOTNULL(A_rtQ);
   CHECK_NOTNULL(cholmod);
   CHECK_NOTNULL(Omega);
 
@@ -257,8 +258,8 @@ void reduceLeftHandSide(SuiteSparseQR_factorization<double>* factor,
     A_rt, cholmod);
   CHECK(A_rtQFull != nullptr) << "SuiteSparseQR_qmult failed.";
 
-
-  *A_rtQ = columnSubmatrix(A_rtQFull, 0, factor->QRsym->n - 1, cholmod);
+  const size_t max_rank_r = std::min(factor->QRsym->n, factor->QRsym->m);
+  *A_rtQ = columnSubmatrix(A_rtQFull, 0, max_rank_r - 1, cholmod);
   cholmod_l_free_sparse(&A_rtQFull, cholmod);
 
   cholmod_sparse* A_rtQ2 = cholmod_l_aat(*A_rtQ, nullptr, 0, 1, cholmod);
@@ -274,6 +275,8 @@ void reduceLeftHandSide(SuiteSparseQR_factorization<double>* factor,
   double beta[2];
   beta[0] = -1.0;
 
+  // Eq. 21: J. Maye et al, Online self-calibration for robotic system, 2015.
+  // http://doi.org/10.1177/0278364915596232
   *Omega = cholmod_l_add(A_rt2, A_rtQ2, alpha, beta, 1, 1, cholmod);
   CHECK(*Omega != nullptr) << "cholmod_l_add failed.";
 
@@ -319,7 +322,9 @@ cholmod_dense* reduceRightHandSide(SuiteSparseQR_factorization<double>*
   cholmod_l_free_sparse(&b_sparse, cholmod);
 
   cholmod_sparse* Qtb;
-  Qtb = rowSubmatrix(QtbFull, 0, factor->QRsym->n - 1, cholmod);
+
+  size_t max_rank_r = std::min(factor->QRsym->n, factor->QRsym->m);
+  Qtb = rowSubmatrix(QtbFull, 0, max_rank_r - 1, cholmod);
   cholmod_l_free_sparse(&QtbFull, cholmod);
 
   cholmod_sparse* A_rtQQtb = cholmod_l_ssmult(A_rtQ, Qtb, 0, 1, 1, cholmod);

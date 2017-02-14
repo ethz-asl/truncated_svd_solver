@@ -29,7 +29,7 @@ Eigen::MatrixXd marginalJacobian(cholmod_sparse* J_x, cholmod_sparse*
    col_indices[i] = i;
   cholmod_sparse* J_thetatQ = cholmod_l_submatrix(J_thetatQFull, NULL, -1,
     col_indices, J_x->ncol, 1, 0, cholmod);
-  delete [] col_indices;
+  delete[] col_indices;
   CHECK(J_thetatQ != nullptr) << "cholmod_l_submatrix failed.";
 
   cholmod_sparse* J_thetat2 = cholmod_l_aat(J_thetat, NULL, 0, 1, cholmod);
@@ -81,7 +81,7 @@ double marginalize(cholmod_sparse* Jt, size_t j, Eigen::MatrixXd& NS,
    col_indices[i] = i;
   cholmod_sparse* J_x = cholmod_l_submatrix(J, NULL, -1, col_indices, j, 1,
     0, &cholmod);
-  delete [] col_indices;
+  delete[] col_indices;
   CHECK(J_x != nullptr) << "cholmod_l_submatrix failed.";
 
   // Extract the part corresponding to the calibration parameters.
@@ -90,7 +90,7 @@ double marginalize(cholmod_sparse* Jt, size_t j, Eigen::MatrixXd& NS,
    col_indices[i - j] = i;
   cholmod_sparse* J_theta = cholmod_l_submatrix(J, NULL, -1, col_indices,
     J->ncol - j, 1, 0, &cholmod);
-  delete [] col_indices;
+  delete[] col_indices;
   CHECK(J_theta != nullptr) << "cholmod_l_submatrix failed.";
 
   cholmod_sparse* J_thetat = cholmod_l_transpose(J_theta, 1, &cholmod);
@@ -115,7 +115,7 @@ double marginalize(cholmod_sparse* Jt, size_t j, Eigen::MatrixXd& NS,
 
   bool success = cholmod_l_scale(G_x, CHOLMOD_COL, J_x, &cholmod);
   CHECK(success) << "cholmod_l_scale failed.";
-  cholmod_l_free_dense(&G_x, &cholmod) ;
+  cholmod_l_free_dense(&G_x, &cholmod);
 
   // Scale J_thetat.
   cholmod_dense* G_theta = cholmod_l_allocate_dense(J_theta->ncol, 1,

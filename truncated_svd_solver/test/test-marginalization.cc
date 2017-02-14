@@ -1,4 +1,10 @@
+#ifdef ANDROID
+#include <math.h>
+#define LOG2 log2
+#else
 #include <cmath>
+#define LOG2 std::log2
+#endif
 #include <cstddef>
 #include <vector>
 
@@ -43,8 +49,7 @@ TEST(TruncatedSvdSolver, Marginalization) {
     SigmaP, Omega);
 
   EXPECT_NEAR(std::fabs(svLogSum),
-              std::fabs(std::log2(std::fabs(J_cov_expected.determinant()))),
-              1e-8);
+              std::fabs(LOG2(std::fabs(J_cov_expected.determinant()))), 1e-8);
   EXPECT_TRUE(EIGEN_MATRIX_NEAR(Sigma, J_cov_expected, 1e-12));
 
   cholmod_l_finish(&cholmod);
@@ -55,9 +60,8 @@ TEST(TruncatedSvdSolver, Marginalization) {
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   google::InitGoogleLogging(argv[0]);
-  google::InstallFailureSignalHandler();\
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
-  FLAGS_alsologtostderr = true;
-  FLAGS_colorlogtostderr = true;
+  FLAGS_alsologtostderr = true;  // NOLINT
+  FLAGS_colorlogtostderr = true;  // NOLINT
   return RUN_ALL_TESTS();
 }

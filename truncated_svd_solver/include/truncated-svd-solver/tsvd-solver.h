@@ -5,6 +5,9 @@
 #include <string>
 #include <vector>
 
+#ifdef ANDROID
+#define UF_long SuiteSparse_long
+#endif
 #include <cholmod.h>
 #include <Eigen/Core>
 
@@ -13,6 +16,9 @@
 template <typename Entry> struct SuiteSparseQR_factorization;
 
 namespace truncated_svd_solver {
+// References:
+// [1] J. Maye et al, Online self-calibration for robotic system, 2015.
+//        (http://doi.org/10.1177/0278364915596232)
 
 /** The class LinearSolver implements a specific linear solver as a
     combination of SPQR and SVD.The right part of the input matrix can be
@@ -26,9 +32,9 @@ class TruncatedSvdSolver {
 
   TruncatedSvdSolver(const Options& options = Options());
   TruncatedSvdSolver(const TruncatedSvdSolver& other) = delete;
-  TruncatedSvdSolver& operator= (const TruncatedSvdSolver& other) = delete;
+  TruncatedSvdSolver& operator=(const TruncatedSvdSolver& other) = delete;
   TruncatedSvdSolver(TruncatedSvdSolver&& other) = delete;
-  TruncatedSvdSolver& operator= (TruncatedSvdSolver&& other) = delete;
+  TruncatedSvdSolver& operator=(TruncatedSvdSolver&& other) = delete;
   virtual ~TruncatedSvdSolver();
 
   /**
@@ -122,7 +128,7 @@ class TruncatedSvdSolver {
   void setNThreads(int n);
  protected:
   void clearSvdAnalysisResultMembers();
-  void analyzeSVD(cholmod_sparse * Omega);
+  void analyzeSVD(cholmod_sparse* Omega);
 
   /// Linear solver options
   Options tsvd_options_;
